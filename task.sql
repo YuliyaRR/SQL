@@ -1,4 +1,4 @@
--- Вывести к каждому самолету класс обслуживания и количество мест этого класса
+-- 1) Вывести к каждому самолету класс обслуживания и количество мест этого класса
 
 ---1 вариант с выводом модели самолета
 
@@ -21,7 +21,7 @@ FROM seats
 GROUP BY aircraft_code
 
 
--- Найти 3 самых вместительных самолета (модель + кол-во мест) 
+-- 2) Найти 3 самых вместительных самолета (модель + кол-во мест) 
 
 SELECT model, COUNT(seat_no) as seats_amount
 FROM aircrafts_data
@@ -31,7 +31,8 @@ GROUP BY model
 ORDER by seats_amount DESC
 LIMIT 3
 
--- Вывести код, модель самолета и места не эконом класса для самолета 'Аэробус A321-200' с сортировкой по местам
+
+-- 3) Вывести код, модель самолета и места не эконом класса для самолета 'Аэробус A321-200' с сортировкой по местам
 
 SELECT aircraft_code, model, seat_no
 FROM aircrafts_data
@@ -40,33 +41,40 @@ WHERE model ->> 'ru' LIKE '%Аэробус A321-200%'
 AND fare_conditions != 'Economy'
 ORDER BY seat_no;
 
--- Вывести города, в которых больше 1 аэропорта (код аэропорта, аэропорт, город)
+
+-- 4) Вывести города, в которых больше 1 аэропорта (код аэропорта, аэропорт, город)
 
 --- 1 вариант с вложенным подзапросом
+
 SELECT airport_code, airport_name, city
 FROM airports_data
 WHERE city IN (SELECT city
-	FROM airports_data
-	GROUP BY city
-	HAVING COUNT (airport_code) > 1)
+			   FROM airports_data
+			   GROUP BY city
+			   HAVING COUNT (airport_code) > 1)
 	
 --- 2 вариант с использованием CTE (Common Table Expression)
+
 With tmp as (SELECT city
-FROM airports_data
-GROUP BY city
-HAVING COUNT (airport_code) > 1)
+			 FROM airports_data
+			 GROUP BY city
+			 HAVING COUNT (airport_code) > 1)
 
 SELECT airport_code, airport_name, city
 FROM tmp
 JOIN airports_data USING (city)
 WHERE city IN (tmp.city)
 
--- Найти ближайший вылетающий рейс из Екатеринбурга в Москву, на который еще не завершилась регистрация
 
-WITH tmp_dep as (SELECT airport_code FROM bookings.airports_data
-WHERE city ->> 'ru' = 'Екатеринбург'), 
-tmp_arr as (SELECT airport_code FROM bookings.airports_data
-WHERE city ->> 'ru' = 'Москва')
+-- 5) Найти ближайший вылетающий рейс из Екатеринбурга в Москву, на который еще не завершилась регистрация
+
+WITH tmp_dep as (SELECT airport_code 
+				 FROM bookings.airports_data
+				 WHERE city ->> 'ru' = 'Екатеринбург'), 
+	
+	tmp_arr as (SELECT airport_code 
+				FROM bookings.airports_data
+				WHERE city ->> 'ru' = 'Москва')
 
 SELECT flight_id, flight_no, scheduled_departure, departure_airport, arrival_airport, status 
 FROM tmp_dep
@@ -76,9 +84,11 @@ WHERE status = 'On Time'
 ORDER BY scheduled_departure ASC
 LIMIT 1
 
--- Вывести самый дешевый и дорогой билет и стоимость (в одном результирующем ответе)
+
+-- 6) Вывести самый дешевый и дорогой билет и стоимость (в одном результирующем ответе)
 
 --- 1 вариант с выводом всех билетов с минимальной и максимальной ценой
+
 WITH tmp_max AS (SELECT ticket_no, amount as amount_max 
 				 FROM ticket_flights
 				 WHERE amount = (SELECT MAX(amount)FROM ticket_flights)
@@ -87,6 +97,7 @@ WITH tmp_max AS (SELECT ticket_no, amount as amount_max
 				 FROM ticket_flights
 				 WHERE amount = (SELECT MIN(amount) FROM ticket_flights)
 				 GROUP BY ticket_no, amount)
+
 SELECT ticket_no, NULL as amount_max, amount_min
 FROM tmp_min
 UNION
@@ -95,6 +106,7 @@ FROM tmp_max
 ORDER BY amount_min;
 
 --- 2 вариант с выводом 1 билета с минимальной и 1 билета с максимальной ценой 
+
 WITH tmp_max AS (SELECT ticket_no, amount as amount_max 
 				 FROM ticket_flights
 				 WHERE amount = (SELECT MAX(amount)FROM ticket_flights)
@@ -105,6 +117,7 @@ WITH tmp_max AS (SELECT ticket_no, amount as amount_max
 				 WHERE amount = (SELECT MIN(amount) FROM ticket_flights)
 				 GROUP BY ticket_no, amount
 			     LIMIT 1)
+				 
 SELECT ticket_no, NULL as amount_max, amount_min
 FROM tmp_min
 UNION
@@ -112,9 +125,11 @@ SELECT ticket_no, amount_max, NULL as amount_min
 FROM tmp_max
 ORDER BY amount_min; 
 
--- Вывести информацию о вылете с наибольшей суммарной стоимостью билетов
+
+-- 7) Вывести информацию о вылете с наибольшей суммарной стоимостью билетов
 
 --- 1 вариант с выводом подробной информации о рейсе
+
 WITH total AS (SELECT flight_id, SUM(amount) as total_price
 			   FROM ticket_flights
 			   GROUP BY flight_id)
@@ -127,23 +142,22 @@ SELECT flight_id, total_price, flight_no,
 	actual_departure, actual_arrival
 FROM (SELECT flight_id, total_price 
 	  FROM total
-	  WHERE total_price IN 
-	  (SELECT MAX(total_price) FROM total)) inn
+	  WHERE total_price IN (SELECT MAX(total_price) FROM total)) inn
 JOIN flights USING (flight_id)
 
 --- 2 вариант без вывода подробной информации о рейсе с использованием вложенных запросов
+
 SELECT flight_id, SUM(amount) as total_price
 FROM ticket_flights
 JOIN flights USING (flight_id)
 GROUP BY flight_id
 HAVING SUM(amount) = (SELECT MAX(total_price) AS max_price
-FROM (SELECT flight_id, SUM(amount) as total_price
-	  FROM ticket_flights
-	  GROUP BY flight_id) inn)
+					  FROM (SELECT flight_id, SUM(amount) as total_price
+							FROM ticket_flights
+							GROUP BY flight_id) inn)
 
 
-
--- Найти модель самолета, принесшую наибольшую прибыль (наибольшая суммарная стоимость билетов). Вывести код модели, информацию о модели и общую стоимость
+-- 8) Найти модель самолета, принесшую наибольшую прибыль (наибольшая суммарная стоимость билетов). Вывести код модели, информацию о модели и общую стоимость
 
 --- 1 вариант с использованием вложенных подзапросов, обратной сортировкой по суммарной стоимости и лимитом вывода в 1 элемент (он же будет максимальным элементом)
 
@@ -158,16 +172,17 @@ LIMIT 1
 --- 2 вариант с использованием временной таблицы
 
 WITH total AS (SELECT aircraft_code, SUM(amount) as total_price
-FROM ticket_flights
-JOIN flights USING (flight_id)
-GROUP BY aircraft_code)
+			   FROM ticket_flights
+			   JOIN flights USING (flight_id)
+			   GROUP BY aircraft_code)
 
 SELECT aircraft_code, model, range, total_price
 FROM total 
 JOIN aircrafts USING (aircraft_code)
 WHERE total_price = (SELECT MAX(total_price) FROM total)
 
--- Найти самый частый аэропорт назначения для каждой модели самолета. Вывести количество вылетов, информацию о модели самолета, аэропорт назначения, город
+
+-- 9) Найти самый частый аэропорт назначения для каждой модели самолета. Вывести количество вылетов, информацию о модели самолета, аэропорт назначения, город
 
 WITH tmp AS (SELECT aircraft_code, arrival_airport, COUNT(arrival_airport) as arrival_count
 			 FROM flights
