@@ -27,7 +27,7 @@ SELECT model, COUNT(seat_no) as seats_amount
 FROM aircrafts_data
 JOIN seats
 USING (aircraft_code)
-GROUP BY model 
+GROUP BY aircraft_code 
 ORDER by seats_amount DESC
 LIMIT 3
 
@@ -162,10 +162,10 @@ HAVING SUM(amount) = (SELECT MAX(total_price) AS max_price
 --- 1 вариант с использованием вложенных подзапросов, обратной сортировкой по суммарной стоимости и лимитом вывода в 1 элемент (он же будет максимальным элементом)
 
 SELECT aircraft_code, model, range, SUM(amount) as total_price
-FROM ticket_flights
-JOIN flights USING (flight_id)
-JOIN aircrafts USING (aircraft_code)
-GROUP BY aircraft_code, model, range
+FROM aircrafts_data
+JOIN flights USING (aircraft_code)
+JOIN ticket_flights USING (flight_id)
+GROUP BY aircraft_code
 ORDER BY total_price DESC
 LIMIT 1
 
@@ -191,9 +191,10 @@ WITH tmp AS (SELECT aircraft_code, arrival_airport, COUNT(arrival_airport) as ar
 			 FROM tmp
 			 GROUP BY aircraft_code)
 
-SELECT aircraft_code, model, range, arrival_airport, city, arr_count  
+SELECT aircraft_code, model, range, arrival_airport, city, arrival_count
 FROM tmp
 JOIN res USING (aircraft_code)
-JOIN aircrafts USING (aircraft_code)
+JOIN aircrafts_data USING (aircraft_code)
 JOIN airports_data ON tmp.arrival_airport = airports_data.airport_code
-WHERE arr_count = res.arr_count
+WHERE arrival_count = res.arr_count
+
